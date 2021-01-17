@@ -6,11 +6,78 @@ const LSM6_SA0_HIGH_ADDRESS: u16 = 0b1101011;
 const LSM6_SA0_LOW_ADDRESS: u16 = 0b1101010;
 const LSM6_WHO_ID: u8 = 0x69;
 
+/// Different modes and frequency that the accelerometer can run at.
+pub enum AccelerometerMode {
+    PowerDown,
+    LowPower13Hz,
+    LowPower26Hz,
+    LowPower52Hz,
+    Normal104Hz,
+    Normal208Hz,
+    HighPerformance416Hz,
+    HighPerformance833Hz,
+    HighPerformance1660Hz,
+    HighPerformance3330Hz,
+    HighPerformance6660Hz,
+}
+
+impl AccelerometerMode {
+    fn to_bitcode(self) -> u8 {
+        match self {
+            PowerDown => 0,
+            LowPower13Hz => 1,
+            LowPower26Hz => 0b10,
+            LowPower52Hz => 0b11,
+            Normal104Hz => 0b100,
+            Normal208Hz => 0b101,
+            HighPerformance416Hz => 0b110,
+            HighPerformance833Hz => 0b111,
+            HighPerformance1660Hz => 0b1000,
+            HighPerformance3330Hz => 0b1001,
+            HighPerformance6660Hz => 0b1010,
+        }
+    }
+}
+
+/// Different modes and frequency that the gyroscope can run at.
+pub enum GyroscopeMode {
+    PowerDown,
+    LowPower13Hz,
+    LowPower26Hz,
+    LowPower52Hz,
+    Normal104Hz,
+    Normal208Hz,
+    HighPerformance416Hz,
+    HighPerformance833Hz,
+    HighPerformance1660Hz,
+}
+
+impl GyroscopeMode {
+    fn to_bitcode(self) -> u8 {
+        match self {
+            PowerDown => 0,
+            LowPower13Hz => 1,
+            LowPower26Hz => 0b10,
+            LowPower52Hz => 0b11,
+            Normal104Hz => 0b100,
+            Normal208Hz => 0b101,
+            HighPerformance416Hz => 0b110,
+            HighPerformance833Hz => 0b111,
+            HighPerformance1660Hz => 0b1000,
+        }
+    }
+}
+
 pub struct LSM6<I: Address + ReadWrite> {
     i2c: I,
 }
 
 impl<I: Address + ReadWrite> LSM6<I> {
+    /// Create a new `LSMD6` from an i2c implementor. 
+    /// This function will automatically set the slave address 
+    /// and assumes that it is unedited throughout its lifetime.
+    /// This will also set the CTR3_C register of the LSM6 to 4,
+    /// but it will NOT set the mode of either sensor or turn them on. 
     pub fn new(mut i2c: I) -> Result<Option<Self>, I::Error> {
         // Set the i2c's address to the correct value
         if !(test_lsm6_addr(&mut i2c, LSM6_SA0_HIGH_ADDRESS)? || test_lsm6_addr(&mut i2c, LSM6_SA0_LOW_ADDRESS)?) {
@@ -19,19 +86,27 @@ impl<I: Address + ReadWrite> LSM6<I> {
 
         // Set automatic register incrementing between reads
         let mut this = Self { i2c };
-        this.set_register(registers::CTRL3_C, 0x4)?;
+        this.set_register(registers::CTRL3_C, 4)?;
 
         Ok(Some(this))
     }
 
-    /// Set the accelerometer and gyroscope to 1.66 kHz
-    pub fn use_default_res(&mut self) -> Result<(), I::Error> {
-        // Accelerometer frequency
-        self.set_register(registers::CTRL1_XL, 0x80)?;
-        // Gyroscope frequency
-        self.set_register(registers::CTRL2_G, 0x80)?;
+    pub fn init_default(&mut self) -> Result<(), I::Error> {
+        self.set_accel_mode(AccelerometerMode::HighPerformance1660Hz)?;
+        self.set_gyro_mode(GyroscopeMode::HighPerformance1660Hz)
+    }
 
-        Ok(())
+    pub fn full_power_down(&mut self) -> Result<(), I::Error> {
+        self.set_accel_mode(AccelerometerMode::PowerDown)?;
+        self.set_gyro_mode(GyroscopeMode::PowerDown)
+    }
+
+    pub fn set_accel_mode(&mut self, mode: AccelerometerMode) -> Result<(), I::Error> {
+        self.set_register(registers::CTRL1_XL, mode.to_bitcode())
+    }
+
+    pub fn set_gyro_mode(&mut self, mode: GyroscopeMode) -> Result<(), I::Error> {
+        self.set_register(registers::CTRL2_G, mode.to_bitcode())
     }
 
     /// Set one of the LSM6's register to a certain value
