@@ -24,17 +24,17 @@ pub enum AccelerometerMode {
 impl AccelerometerMode {
     fn to_bitcode(self) -> u8 {
         match self {
-            PowerDown => 0,
-            LowPower13Hz => 1,
-            LowPower26Hz => 0b10,
-            LowPower52Hz => 0b11,
-            Normal104Hz => 0b100,
-            Normal208Hz => 0b101,
-            HighPerformance416Hz => 0b110,
-            HighPerformance833Hz => 0b111,
-            HighPerformance1660Hz => 0b1000,
-            HighPerformance3330Hz => 0b1001,
-            HighPerformance6660Hz => 0b1010,
+            AccelerometerMode::PowerDown => 0,
+            AccelerometerMode::LowPower13Hz => 1,
+            AccelerometerMode::LowPower26Hz => 0b10,
+            AccelerometerMode::LowPower52Hz => 0b11,
+            AccelerometerMode::Normal104Hz => 0b100,
+            AccelerometerMode::Normal208Hz => 0b101,
+            AccelerometerMode::HighPerformance416Hz => 0b110,
+            AccelerometerMode::HighPerformance833Hz => 0b111,
+            AccelerometerMode::HighPerformance1660Hz => 0b1000,
+            AccelerometerMode::HighPerformance3330Hz => 0b1001,
+            AccelerometerMode::HighPerformance6660Hz => 0b1010,
         }
     }
 }
@@ -55,15 +55,15 @@ pub enum GyroscopeMode {
 impl GyroscopeMode {
     fn to_bitcode(self) -> u8 {
         match self {
-            PowerDown => 0,
-            LowPower13Hz => 1,
-            LowPower26Hz => 0b10,
-            LowPower52Hz => 0b11,
-            Normal104Hz => 0b100,
-            Normal208Hz => 0b101,
-            HighPerformance416Hz => 0b110,
-            HighPerformance833Hz => 0b111,
-            HighPerformance1660Hz => 0b1000,
+            GyroscopeMode::PowerDown => 0,
+            GyroscopeMode::LowPower13Hz => 1,
+            GyroscopeMode::LowPower26Hz => 0b10,
+            GyroscopeMode::LowPower52Hz => 0b11,
+            GyroscopeMode::Normal104Hz => 0b100,
+            GyroscopeMode::Normal208Hz => 0b101,
+            GyroscopeMode::HighPerformance416Hz => 0b110,
+            GyroscopeMode::HighPerformance833Hz => 0b111,
+            GyroscopeMode::HighPerformance1660Hz => 0b1000,
         }
     }
 }
