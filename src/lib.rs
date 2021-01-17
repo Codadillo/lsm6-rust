@@ -1,9 +1,9 @@
 pub mod registers;
 
-use i2c::{Address, ReadWrite};
+use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
-const LSM6_SA0_HIGH_ADDRESS: u16 = 0b1101011;
-const LSM6_SA0_LOW_ADDRESS: u16 = 0b1101010;
+const LSM6_SA0_HIGH_ADDRESS: u8 = 0b1101011;
+const LSM6_SA0_LOW_ADDRESS: u8 = 0b1101010;
 const LSM6_WHO_ID: u8 = 0x69;
 
 /// Different modes and frequency that the accelerometer can run at.
@@ -68,78 +68,80 @@ impl GyroscopeMode {
     }
 }
 
-pub struct LSM6<I: Address + ReadWrite> {
+pub struct LSM6<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> {
+    address: u8,
     i2c: I,
 }
 
-impl<I: Address + ReadWrite> LSM6<I> {
+impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I> {
     /// Create a new `LSMD6` from an i2c implementor. 
-    /// This function will automatically set the slave address 
-    /// and assumes that it is unedited throughout its lifetime.
+    /// This function will automatically set the slave address.
     /// This will also set the CTR3_C register of the LSM6 to 4,
     /// but it will NOT set the mode of either sensor or turn them on. 
-    pub fn new(mut i2c: I) -> Result<Option<Self>, I::Error> {
-        // Set the i2c's address to the correct value
-        if !(test_lsm6_addr(&mut i2c, LSM6_SA0_HIGH_ADDRESS)? || test_lsm6_addr(&mut i2c, LSM6_SA0_LOW_ADDRESS)?) {
+    pub fn new(mut i2c: I) -> Result<Option<Self>, E> {
+        // Get the correct address for the lsm6 that is being used
+        let address = if test_lsm6_addr(&mut i2c, LSM6_SA0_HIGH_ADDRESS)? {
+            LSM6_SA0_HIGH_ADDRESS
+        } else if test_lsm6_addr(&mut i2c, LSM6_SA0_LOW_ADDRESS)? {
+            LSM6_SA0_LOW_ADDRESS
+        } else {
             return Ok(None);
         };
 
         // Set automatic register incrementing between reads
-        let mut this = Self { i2c };
+        let mut this = Self { address, i2c };
         this.set_register(registers::CTRL3_C, 4)?;
 
         Ok(Some(this))
     }
 
     /// Turns on both sensors in high performance mode.
-    pub fn init_default(&mut self) -> Result<(), I::Error> {
+    pub fn init_default(&mut self) -> Result<(), E> {
         self.set_accel_mode(AccelerometerMode::HighPerformance1660Hz)?;
         self.set_gyro_mode(GyroscopeMode::HighPerformance1660Hz)
     }
 
     /// Powers down both sensors.
-    pub fn full_power_down(&mut self) -> Result<(), I::Error> {
+    pub fn full_power_down(&mut self) -> Result<(), E> {
         self.set_accel_mode(AccelerometerMode::PowerDown)?;
         self.set_gyro_mode(GyroscopeMode::PowerDown)
     }
 
-    pub fn set_accel_mode(&mut self, mode: AccelerometerMode) -> Result<(), I::Error> {
+    pub fn set_accel_mode(&mut self, mode: AccelerometerMode) -> Result<(), E> {
         self.set_register(registers::CTRL1_XL, mode.to_bitcode())
     }
 
-    pub fn set_gyro_mode(&mut self, mode: GyroscopeMode) -> Result<(), I::Error> {
+    pub fn set_gyro_mode(&mut self, mode: GyroscopeMode) -> Result<(), E> {
         self.set_register(registers::CTRL2_G, mode.to_bitcode())
     }
 
     /// Set one of the LSM6's register to a certain value
-    pub fn set_register(&mut self, reg: u8, value: u8) -> Result<(), I::Error> {
-        self.i2c.i2c_write(&[reg, value])
+    pub fn set_register(&mut self, reg: u8, value: u8) -> Result<(), E> {
+        self.i2c.write(self.address, &[reg, value])
     }
 
     /// Read one of the LSM6's registers
-    pub fn read_register(&mut self, reg: u8) -> Result<u8, I::Error> {
-        self.i2c.i2c_write(&[reg])?;
-
+    pub fn read_register(&mut self, reg: u8) -> Result<u8, E> {
         let mut resp = [0];
-        self.i2c.i2c_read(&mut resp)?;
+        self.i2c.write_read(self.address, &[reg], &mut resp)?;
         Ok(resp[0])
     }
 
-    /// Reads the latest acceleration data, returning `None` if any is not ready.
+    /// Reads the latest acceleration data, returning `Ok(None)` if any is not ready.
     /// A `None` return does not necessarily indicate that anything has failed,
     /// and this function can be called immediately afterwards.
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1
     /// (which automatically happens in `LSMG::new`).
-    pub fn read_gyro(&mut self) -> Result<Option<(u16, u16, u16)>, I::Error> {
+    pub fn read_gyro(&mut self) -> Result<Option<(u16, u16, u16)>, E> {
         self.incremental_read_measurements(registers::OUTX_L_G)
     }
 
-    /// Reads the latest gyroscopic data, returning `None` if any is not ready.
+    /// Reads the latest gyroscopic data, returning `Ok(None)` if any is not ready.
     /// A `None` return does not necessarily indicate that anything has failed,
     /// and this function can be called immediately afterwards.
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1
     /// (which automatically happens in `LSMG::new`).
-    pub fn read_accel(&mut self) -> Result<Option<(u16, u16, u16)>, I::Error> {
+    pub fn read_accel(&mut self) -> Result<Option<(u16, u16, u16)>, E> {
         self.incremental_read_measurements(registers::OUTX_L_XL)
     }
 
@@ -147,15 +149,13 @@ impl<I: Address + ReadWrite> LSM6<I> {
     fn incremental_read_measurements(
         &mut self,
         start_reg: u8,
-    ) -> Result<Option<(u16, u16, u16)>, I::Error> {
+    ) -> Result<Option<(u16, u16, u16)>, E> {
         if self.read_register(registers::STATUS_REG)? & 0b1 != 1 {
             return Ok(None);
         }
 
-        self.i2c.i2c_write(&[start_reg])?;
-
         let mut values = [0; 6];
-        self.i2c.i2c_read(&mut values)?;
+        self.i2c.write_read(self.address, &[start_reg], &mut values)?;
 
         Ok(Some((
             (values[1] as u16) << 8 | values[0] as u16,
@@ -165,11 +165,8 @@ impl<I: Address + ReadWrite> LSM6<I> {
     }
 }
 
-fn test_lsm6_addr<I: Address + ReadWrite>(i2c: &mut I, address: u16) -> Result<bool, I::Error> {
-    i2c.set_slave_address(address, false)?;
-    i2c.i2c_write(&[registers::WHO_AM_I])?;
-
+fn test_lsm6_addr<I: WriteRead>(i2c: &mut I, address: u8) -> Result<bool, I::Error> {
     let mut resp = [LSM6_WHO_ID + 1];
-    i2c.i2c_read(&mut resp)?;
+    i2c.write_read(address, &[registers::WHO_AM_I], &mut resp)?;
     Ok(resp[0] == LSM6_WHO_ID)
 }
