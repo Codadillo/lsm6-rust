@@ -91,11 +91,13 @@ impl<I: Address + ReadWrite> LSM6<I> {
         Ok(Some(this))
     }
 
+    /// Turns on both sensors in high performance mode.
     pub fn init_default(&mut self) -> Result<(), I::Error> {
         self.set_accel_mode(AccelerometerMode::HighPerformance1660Hz)?;
         self.set_gyro_mode(GyroscopeMode::HighPerformance1660Hz)
     }
 
+    /// Powers down both sensors.
     pub fn full_power_down(&mut self) -> Result<(), I::Error> {
         self.set_accel_mode(AccelerometerMode::PowerDown)?;
         self.set_gyro_mode(GyroscopeMode::PowerDown)
