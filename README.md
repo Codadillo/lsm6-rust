@@ -7,13 +7,14 @@ use lsmd6::LSMD6;
 use std::{time::Duration, thread};
 
 fn main() {
-    // Get an i2c interface from elsewhere
+    // Get an i2c interface from elsewhere.
+    // For example the https://crates.io/crates/i2c-linux crate.
     let i2c = something_from_another_library();
 
     let lsmd6 = LSMD6::new(i2c).unwrap();
     
     // Physically turn on the gyroscope and accelerometer
-    // in high performance mode
+    // in high performance mode.
     lsmd6.init_default();
 
     for _ in 0..100 {
