@@ -108,11 +108,11 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     }
 
     pub fn set_accel_mode(&mut self, mode: AccelerometerMode) -> Result<(), E> {
-        self.set_register(registers::CTRL1_XL, mode.to_bitcode())
+        self.set_register(registers::CTRL1_XL, mode.to_bitcode() << 4)
     }
 
     pub fn set_gyro_mode(&mut self, mode: GyroscopeMode) -> Result<(), E> {
-        self.set_register(registers::CTRL2_G, mode.to_bitcode())
+        self.set_register(registers::CTRL2_G, mode.to_bitcode() << 4)
     }
 
     /// Set one of the LSM6's register to a certain value
@@ -132,7 +132,7 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     /// and this function can be called immediately afterwards.
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1
     /// (which automatically happens in `LSMG::new`).
-    pub fn read_gyro(&mut self) -> Result<Option<(u16, u16, u16)>, E> {
+    pub fn read_gyro(&mut self) -> Result<Option<(i16, i16, i16)>, E> {
         self.incremental_read_measurements(registers::OUTX_L_G)
     }
 
@@ -141,7 +141,7 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     /// and this function can be called immediately afterwards.
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1
     /// (which automatically happens in `LSMG::new`).
-    pub fn read_accel(&mut self) -> Result<Option<(u16, u16, u16)>, E> {
+    pub fn read_accel(&mut self) -> Result<Option<(i16, i16, i16)>, E> {
         self.incremental_read_measurements(registers::OUTX_L_XL)
     }
 
@@ -149,7 +149,7 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     fn incremental_read_measurements(
         &mut self,
         start_reg: u8,
-    ) -> Result<Option<(u16, u16, u16)>, E> {
+    ) -> Result<Option<(i16, i16, i16)>, E> {
         if self.read_register(registers::STATUS_REG)? & 0b1 != 1 {
             return Ok(None);
         }
@@ -158,9 +158,9 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
         self.i2c.write_read(self.address, &[start_reg], &mut values)?;
 
         Ok(Some((
-            (values[1] as u16) << 8 | values[0] as u16,
-            (values[3] as u16) << 8 | values[2] as u16,
-            (values[5] as u16) << 8 | values[4] as u16,
+            (values[1] as i16) << 8 | values[0] as i16,
+            (values[3] as i16) << 8 | values[2] as i16,
+            (values[5] as i16) << 8 | values[4] as i16,
         )))
     }
 }

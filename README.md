@@ -10,7 +10,7 @@ fn main() {
     // Get an i2c interface from elsewhere.
     let i2c = something_from_another_library();
 
-    let lsmd6 = LSMD6::new(i2c).unwrap();
+    let mut lsmd6 = LSMD6::new(i2c).unwrap().unwrap();
     
     // Physically turn on the gyroscope and accelerometer
     // in high performance mode.
