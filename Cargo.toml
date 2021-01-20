@@ -1,5 +1,5 @@
 [package]
-name = "lsm6"
+name = "lsm6ds33"
 version = "0.1.0"
 authors = ["Codadillo <leoconr@nuevaschool.org>"]
 edition = "2018"

@@ -3,7 +3,7 @@ This is a library for interacting over i2c with the LSM6DS33 gyroscope and accle
 
 
 ```rust
-use lsmd6::LSMD6;
+use lsm6ds33::LSMD6;
 use std::{time::Duration, thread};
 
 fn main() {
