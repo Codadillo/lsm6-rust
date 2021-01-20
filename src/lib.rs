@@ -74,10 +74,10 @@ pub struct LSM6<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>>
 }
 
 impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I> {
-    /// Create a new `LSMD6` from an i2c implementor. 
+    /// Create a new `LSMD6` from an i2c implementor.
     /// This function will automatically set the slave address.
     /// This will also set the CTR3_C register of the LSM6 to 4,
-    /// but it will NOT set the mode of either sensor or turn them on. 
+    /// but it will NOT set the mode of either sensor or turn them on.
     pub fn new(mut i2c: I) -> Result<Option<Self>, E> {
         // Get the correct address for the lsm6 that is being used
         let address = if test_lsm6_addr(&mut i2c, LSM6_SA0_HIGH_ADDRESS)? {
@@ -115,6 +115,30 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
         self.set_register(registers::CTRL2_G, mode.to_bitcode() << 4)
     }
 
+    /// Sets which axes of the accelerometer are enabled. 
+    /// The result of `LSM6::read_accel` will remain structurally the same,
+    /// although the output it gives for a disabled axis should be ignored.
+    pub fn set_accel_axes(&mut self, x: bool, y: bool, z: bool) -> Result<(), E> {
+        self.set_register(
+            registers::CTRL9_XL,
+            if x { 0b100000 } else { 0 } | if y { 0b10000 } else { 0 } | if z { 0b1000 } else { 0 },
+        )
+    }
+
+    /// Sets which axes of the gyroscope are enabled. 
+    /// The result of `LSM6::read_gyro` will remain structurally the same,
+    /// although the output it gives for a disabled axis should be ignored.
+    pub fn set_gyro_axes(&mut self, x: bool, y: bool, z: bool) -> Result<(), E> {
+        let prev = self.read_register(registers::CTRL10_C)?;
+        self.set_register(
+            registers::CTRL10_C,
+            if x { 0b100000 } else { 0 }
+                | if y { 0b10000 } else { 0 }
+                | if z { 0b1000 } else { 0 }
+                | (prev & 7),
+        )
+    }
+
     /// Set one of the LSM6's register to a certain value
     pub fn set_register(&mut self, reg: u8, value: u8) -> Result<(), E> {
         self.i2c.write(self.address, &[reg, value])
@@ -136,7 +160,8 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
         if self.read_register(registers::STATUS_REG)? & 0b10 != 0b10 {
             return Ok(None);
         }
-        self.incremental_read_measurements(registers::OUTX_L_G).map(|o| Some(o))
+        self.incremental_read_measurements(registers::OUTX_L_G)
+            .map(|o| Some(o))
     }
 
     /// Reads the latest gyroscopic data, returning `Ok(None)` if any is not ready.
@@ -148,16 +173,15 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
         if self.read_register(registers::STATUS_REG)? & 0b1 != 1 {
             return Ok(None);
         }
-        self.incremental_read_measurements(registers::OUTX_L_XL).map(|o| Some(o))
+        self.incremental_read_measurements(registers::OUTX_L_XL)
+            .map(|o| Some(o))
     }
 
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1.
-    fn incremental_read_measurements(
-        &mut self,
-        start_reg: u8,
-    ) -> Result<(i16, i16, i16), E> {
+    fn incremental_read_measurements(&mut self, start_reg: u8) -> Result<(i16, i16, i16), E> {
         let mut values = [0; 6];
-        self.i2c.write_read(self.address, &[start_reg], &mut values)?;
+        self.i2c
+            .write_read(self.address, &[start_reg], &mut values)?;
 
         Ok((
             (values[1] as i16) << 8 | values[0] as i16,
