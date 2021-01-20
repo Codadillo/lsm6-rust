@@ -107,10 +107,12 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
         self.set_gyro_mode(GyroscopeMode::PowerDown)
     }
 
+    /// This overwrites the CTRL1_XL register.
     pub fn set_accel_mode(&mut self, mode: AccelerometerMode) -> Result<(), E> {
         self.set_register(registers::CTRL1_XL, mode.to_bitcode() << 4)
     }
 
+    /// This overwrites the CTRL2_G register.
     pub fn set_gyro_mode(&mut self, mode: GyroscopeMode) -> Result<(), E> {
         self.set_register(registers::CTRL2_G, mode.to_bitcode() << 4)
     }
@@ -118,6 +120,7 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     /// Sets which axes of the accelerometer are enabled. 
     /// The result of `LSM6::read_accel` will remain structurally the same,
     /// although the output it gives for a disabled axis should be ignored.
+    /// This overwrites the CTRL9_XL register.
     pub fn set_accel_axes(&mut self, x: bool, y: bool, z: bool) -> Result<(), E> {
         self.set_register(
             registers::CTRL9_XL,
@@ -128,6 +131,7 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     /// Sets which axes of the gyroscope are enabled. 
     /// The result of `LSM6::read_gyro` will remain structurally the same,
     /// although the output it gives for a disabled axis should be ignored.
+    /// This overwrites the CTRL10_C register.
     pub fn set_gyro_axes(&mut self, x: bool, y: bool, z: bool) -> Result<(), E> {
         let prev = self.read_register(registers::CTRL10_C)?;
         self.set_register(
@@ -139,12 +143,14 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
         )
     }
 
-    /// Set one of the LSM6's register to a certain value
+    /// Set one of the LSM6's register to a certain value.
+    /// Be wary when using this manually, as you may override
+    /// an important setting.
     pub fn set_register(&mut self, reg: u8, value: u8) -> Result<(), E> {
         self.i2c.write(self.address, &[reg, value])
     }
 
-    /// Read one of the LSM6's registers
+    /// Read one of the LSM6's registers.
     pub fn read_register(&mut self, reg: u8) -> Result<u8, E> {
         let mut resp = [0];
         self.i2c.write_read(self.address, &[reg], &mut resp)?;
