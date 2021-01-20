@@ -133,7 +133,10 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1
     /// (which automatically happens in `LSMG::new`).
     pub fn read_gyro(&mut self) -> Result<Option<(i16, i16, i16)>, E> {
-        self.incremental_read_measurements(registers::OUTX_L_G)
+        if self.read_register(registers::STATUS_REG)? & 0b10 != 0b10 {
+            return Ok(None);
+        }
+        self.incremental_read_measurements(registers::OUTX_L_G).map(|o| Some(o))
     }
 
     /// Reads the latest gyroscopic data, returning `Ok(None)` if any is not ready.
@@ -142,26 +145,25 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1
     /// (which automatically happens in `LSMG::new`).
     pub fn read_accel(&mut self) -> Result<Option<(i16, i16, i16)>, E> {
-        self.incremental_read_measurements(registers::OUTX_L_XL)
+        if self.read_register(registers::STATUS_REG)? & 0b1 != 1 {
+            return Ok(None);
+        }
+        self.incremental_read_measurements(registers::OUTX_L_XL).map(|o| Some(o))
     }
 
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1.
     fn incremental_read_measurements(
         &mut self,
         start_reg: u8,
-    ) -> Result<Option<(i16, i16, i16)>, E> {
-        if self.read_register(registers::STATUS_REG)? & 0b1 != 1 {
-            return Ok(None);
-        }
-
+    ) -> Result<(i16, i16, i16), E> {
         let mut values = [0; 6];
         self.i2c.write_read(self.address, &[start_reg], &mut values)?;
 
-        Ok(Some((
+        Ok((
             (values[1] as i16) << 8 | values[0] as i16,
             (values[3] as i16) << 8 | values[2] as i16,
             (values[5] as i16) << 8 | values[4] as i16,
-        )))
+        ))
     }
 }
 
