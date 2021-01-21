@@ -75,6 +75,15 @@ pub struct LSM6<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>>
     i2c: I,
 }
 
+impl<E, I: Clone + Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> Clone for LSM6<E, I> {
+    fn clone(&self) -> Self {
+        LSM6 {
+            address: self.address.clone(),
+            i2c: self.i2c.clone(),
+        }
+    }
+}
+
 impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I> {
     /// Create a new `LSMD6` from an i2c implementor.
     /// This function will automatically set the slave address.
