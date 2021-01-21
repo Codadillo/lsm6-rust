@@ -1,3 +1,5 @@
+#![no_std]
+
 pub mod registers;
 
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
@@ -160,8 +162,9 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     /// Reads the latest acceleration data, returning `Ok(None)` if any is not ready.
     /// A `None` return does not necessarily indicate that anything has failed,
     /// and this function can be called immediately afterwards.
-    /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1
-    /// (which automatically happens in `LSMG::new`).
+    /// This method of extracting measurements only works if bit 2 (0-indexed) of the CTRL_3C register is set to 1
+    /// (which automatically happens in `LSMG::new`). It also assumes that the data is given in little endian, which is true
+    /// when bit 1 of the CTRL_3C register is set to 0. 
     pub fn read_gyro(&mut self) -> Result<Option<(i16, i16, i16)>, E> {
         if self.read_register(registers::STATUS_REG)? & 0b10 != 0b10 {
             return Ok(None);
@@ -174,7 +177,8 @@ impl<E, I: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>> LSM6<E, I>
     /// A `None` return does not necessarily indicate that anything has failed,
     /// and this function can be called immediately afterwards.
     /// This method of extracting measurements only works if the 2nd bit (0-indexed) of the CTRL_3C register is set to 1
-    /// (which automatically happens in `LSMG::new`).
+    /// (which automatically happens in `LSMG::new`). It also assumes that the data is given in little endian, which is true
+    /// when bit 1 of the CTRL_3C register is set to 0. 
     pub fn read_accel(&mut self) -> Result<Option<(i16, i16, i16)>, E> {
         if self.read_register(registers::STATUS_REG)? & 0b1 != 1 {
             return Ok(None);
